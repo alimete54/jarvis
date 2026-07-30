@@ -1,0 +1,35 @@
+name: iOS Unsigned IPA Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build iOS IPA (Unsigned)
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: stable
+
+      - run: flutter pub get
+
+      - run: flutter build ios --release --no-codesign
+
+      - name: Create unsigned IPA
+        run: |
+          mkdir -p build/ios/ipa/Payload
+          cp -r build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
+          cd build/ios/ipa
+          zip -r jarvis.ipa Payload/
+          mv jarvis.ipa ../jarvis.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jarvis-unsigned-ipa
+          path: build/ios/jarvis.ipa
