@@ -22,10 +22,68 @@ jobs:
       - name: Bagimliliklari yukle
         run: flutter pub get
 
-      - name: Simulator build
-        run: flutter build ios --release --no-codesign --simulator
+      - name: Self-signed sertifika olustur
+        run: |
+          # Keychain olustur
+          security create-keychain -p temp ios.keychain 2>/dev/null || true
+          security default-keychain -s ios.keychain
+          security unlock-keychain -p temp ios.keychain
+          security set-keychain-settings -lut 3600 ios.keychain
+
+          # Private key ve CSR olustur
+          openssl genrsa -out /tmp/dev.key 2048
+          openssl req -new -key /tmp/dev.key \
+            -out /tmp/dev.csr \
+            -subj "/CN=JARVIS CI Development/O=JARVIS/C=US"
+
+          # Self-signed sertifika (codesigning icin)
+          cat > /tmp/cert_ext.conf << 'CONF'
+[v3_req]
+keyUsage = critical, digitalSignature
+extendedKeyUsage = critical, codeSigning
+CONF
+          openssl x509 -req -days 365 \
+            -in /tmp/dev.csr \
+            -signkey /tmp/dev.key \
+            -out /tmp/dev.crt \
+            -extensions v3_req \
+            -extfile /tmp/cert_ext.conf
+
+          # Keychain'e ekle
+          security import /tmp/dev.crt -k ios.keychain
+          security import /tmp/dev.key -k ios.keychain -P temp
+          security set-key-partition-list -S apple-tool:,apple: -s -k temp ios.keychain
+
+          # Sertifika ID'sini al
+          CERT_ID=$(security find-identity -v -p codesigning ios.keychain | head -1 | awk '{print $2}')
+          echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
+          echo "Sertifika: $CERT_ID"
+
+      - name: DEVELOPMENT_TEAM ve signing ayarla
+        run: |
+          ruby -e '
+            path = "ios/Runner.xcodeproj/project.pbxproj"
+            content = File.read(path)
+            team = ENV["CERT_ID"] || "0000000000"
+            content = content.gsub(/DEVELOPMENT_TEAM\s*=\s*"[^"]*";/, "DEVELOPMENT_TEAM = #{team};")
+            content = content.gsub(/DevelopmentTeam\s*=\s*"[^"]*";/, "DevelopmentTeam = #{team};")
+            content = content.gsub(/CODE_SIGN_STYLE\s*=\s*[^;]+;/, "CODE_SIGN_STYLE = Manual;")
+            unless content.include?("DEVELOPMENT_TEAM = #{team}")
+              content = content.sub(/PRODUCT_BUNDLE_IDENTIFIER[^;]+;/) { |m| "#{m}\n\t\t\t\tDEVELOPMENT_TEAM = #{team};" }
+            end
+            File.write(path, content)
+          '
+          echo "--- AYARLAR ---"
+          grep -E "DEVELOPMENT_TEAM|DevelopmentTeam|CODE_SIGN_STYLE" ios/Runner.xcodeproj/project.pbxproj
+
+      - name: IPA build
+        run: |
+          flutter build ios --release --no-codesign
+          mkdir -p build/ios/ipa/Payload
+          cp -r build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
+          cd build/ios/ipa && zip -r ../../../JARVIS.ipa Payload/
 
       - uses: actions/upload-artifact@v4
         with:
-          name: JARVIS-simulator
-          path: build/ios/iphonesimulator/Runner.app
+          name: JARVIS-ipa
+          path: JARVIS.ipa
