@@ -14,9 +14,9 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: stable
+          flutter-version: '3.24.0'
 
-      - name: iOS platform dosyalarini olustur
+      - name: iOS platform dosyalari
         run: flutter create --platforms=ios --project-name jarvis .
 
       - name: Bagimliliklari yukle
@@ -27,7 +27,7 @@ jobs:
           sed -i '' 's/DEVELOPMENT_TEAM = "";/DEVELOPMENT_TEAM = 0000000000;/g' ios/Runner.xcodeproj/project.pbxproj
           sed -i '' 's/DevelopmentTeam = "";/DevelopmentTeam = 0000000000;/g' ios/Runner.xcodeproj/project.pbxproj
 
-      - name: Imzasiz IPA build
+      - name: IPA build (imzasiz)
         run: |
           flutter build ios --release --no-codesign
           mkdir -p build/ios/ipa/Payload
