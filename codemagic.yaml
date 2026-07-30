@@ -1,27 +1,12 @@
 workflows:
-  ios-sim:
-    name: JARVIS iOS Simulator
+  ios-build:
+    name: JARVIS IPA Build
     instance_type: mac_mini_m2
     environment:
       flutter: stable
       xcode: latest
       cocoapods: default
     scripts:
-      - flutter create --platforms=ios --project-name jarvis .
-      - flutter pub get
-      - flutter build ios --release --no-codesign --simulator
-    artifacts:
-      - build/ios/iphonesimulator/Runner.app
-
-  ios-device:
-    name: JARVIS iOS IPA (Imzali)
-    instance_type: mac_mini_m2
-    environment:
-      flutter: stable
-      xcode: latest
-      cocoapods: default
-    scripts:
-      - flutter create --platforms=ios --project-name jarvis .
       - flutter pub get
       - flutter build ios --release
     artifacts:
