@@ -25,23 +25,30 @@ jobs:
       - name: Fastlane kurulumu
         run: gem install fastlane
 
-      - name: DEVELOPMENT_TEAM ekle
+      - name: Xcode proje ayarlari (imzali)
         run: |
           ruby -e '
             path = "ios/Runner.xcodeproj/project.pbxproj"
             content = File.read(path)
+            # Development Team
             content = content.gsub(/DEVELOPMENT_TEAM\s*=\s*"";/, "DEVELOPMENT_TEAM = 0000000000;")
             content = content.gsub(/DevelopmentTeam\s*=\s*"";/, "DevelopmentTeam = 0000000000;")
+            # Code Sign Style = Automatic
+            content = content.gsub(/CODE_SIGN_STYLE\s*=\s*Manual;/, "CODE_SIGN_STYLE = Automatic;")
+            content = content.gsub(/CODE_SIGN_STYLE\s*=\s*"";/, "CODE_SIGN_STYLE = Automatic;")
+            unless content.include?("CODE_SIGN_STYLE = Automatic")
+              content = content.sub(/PRODUCT_BUNDLE_IDENTIFIER[^;]+;/) { |m| "#{m}\n\t\t\t\tCODE_SIGN_STYLE = Automatic;" }
+            end
             unless content.include?("DEVELOPMENT_TEAM = 0000000000")
               content = content.sub(/PRODUCT_BUNDLE_IDENTIFIER[^;]+;/) { |m| "#{m}\n\t\t\t\tDEVELOPMENT_TEAM = 0000000000;" }
             end
             File.write(path, content)
           '
+          grep -n "DEVELOPMENT_TEAM\|CODE_SIGN_STYLE" ios/Runner.xcodeproj/project.pbxproj
 
-      - name: Imzali IPA build (Fastlane + Apple ID)
+      - name: Imzali IPA build (Fastlane)
         env:
           FASTLANE_USER: ${{ secrets.APPLE_ID }}
-          FASTLANE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           FASTLANE_DONT_STORE_PASSWORD: "1"
         run: |
@@ -53,8 +60,7 @@ jobs:
             --export_method development \
             --output_name JARVIS \
             --output_directory ../build/ios/ipa \
-            --include_bitcode false \
-            --use_automatic_signing true
+            --include_bitcode false
 
       - uses: actions/upload-artifact@v4
         with:
