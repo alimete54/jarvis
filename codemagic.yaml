@@ -14,7 +14,7 @@ workflows:
       - build/ios/iphonesimulator/Runner.app
 
   ios-device:
-    name: JARVIS iOS Cihaz (Imzali)
+    name: JARVIS iOS IPA (Imzali)
     instance_type: mac_mini_m2
     environment:
       flutter: stable
