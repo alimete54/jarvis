@@ -9,10 +9,20 @@ workflows:
     scripts:
       - flutter create --platforms=ios --project-name jarvis .
       - flutter pub get
+      - |
+        # İmzasız build için Xcode ayarları
+        echo 'CODE_SIGN_IDENTITY=' >> ios/Flutter/Release.xcconfig
+        echo 'CODE_SIGNING_REQUIRED=NO' >> ios/Flutter/Release.xcconfig
+        echo 'CODE_SIGNING_ALLOWED=NO' >> ios/Flutter/Release.xcconfig
+        echo 'DEVELOPMENT_TEAM=' >> ios/Flutter/Release.xcconfig
       - flutter build ios --release --no-codesign
+      - |
+        # .app'ten IPA oluştur
+        mkdir -p build/ios/ipa/Payload
+        cp -r build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
+        cd build/ios/ipa && zip -r ../../../jarvis.ipa Payload/
     artifacts:
-      - build/ios/ipa/*.ipa
-      - build/ios/archive/*.xcarchive
+      - jarvis.ipa
     publishing:
       email:
         recipients:
