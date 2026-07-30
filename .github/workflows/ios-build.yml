@@ -22,7 +22,10 @@ jobs:
       - name: Bagimliliklari yukle
         run: flutter pub get
 
-      - name: DEVELOPMENT_TEAM ekle (Ruby)
+      - name: Fastlane kurulumu
+        run: gem install fastlane
+
+      - name: DEVELOPMENT_TEAM ekle
         run: |
           ruby -e '
             path = "ios/Runner.xcodeproj/project.pbxproj"
@@ -33,18 +36,27 @@ jobs:
               content = content.sub(/PRODUCT_BUNDLE_IDENTIFIER[^;]+;/) { |m| "#{m}\n\t\t\t\tDEVELOPMENT_TEAM = 0000000000;" }
             end
             File.write(path, content)
-            puts "Patched DEVELOPMENT_TEAM"
           '
-          grep -n "DEVELOPMENT_TEAM" ios/Runner.xcodeproj/project.pbxproj
 
-      - name: IPA build
+      - name: Imzali IPA build (Fastlane + Apple ID)
+        env:
+          FASTLANE_USER: ${{ secrets.APPLE_ID }}
+          FASTLANE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          FASTLANE_DONT_STORE_PASSWORD: "1"
         run: |
-          flutter build ios --release --no-codesign
-          mkdir -p build/ios/ipa/Payload
-          cp -r build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
-          cd build/ios/ipa && zip -r ../../../JARVIS.ipa Payload/
+          cd ios
+          fastlane gym \
+            --scheme Runner \
+            --workspace Runner.xcworkspace \
+            --configuration Release \
+            --export_method development \
+            --output_name JARVIS \
+            --output_directory ../build/ios/ipa \
+            --include_bitcode false \
+            --use_automatic_signing true
 
       - uses: actions/upload-artifact@v4
         with:
           name: JARVIS-ipa
-          path: JARVIS.ipa
+          path: build/ios/ipa/*.ipa
