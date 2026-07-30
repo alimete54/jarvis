@@ -1,0 +1,40 @@
+name: JARVIS iOS Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: stable
+
+      - name: iOS platform dosyalarini olustur
+        run: flutter create --platforms=ios --project-name jarvis .
+
+      - name: Bagimliliklari yukle
+        run: flutter pub get
+
+      - name: Dummy Development Team ekle
+        run: |
+          sed -i '' 's/DEVELOPMENT_TEAM = "";/DEVELOPMENT_TEAM = 0000000000;/g' ios/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/DevelopmentTeam = "";/DevelopmentTeam = 0000000000;/g' ios/Runner.xcodeproj/project.pbxproj
+
+      - name: Imzasiz IPA build
+        run: |
+          flutter build ios --release --no-codesign
+          mkdir -p build/ios/ipa/Payload
+          cp -r build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
+          cd build/ios/ipa && zip -r ../../../JARVIS.ipa Payload/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-ipa
+          path: JARVIS.ipa
