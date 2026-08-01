@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import '../config/theme.dart';
-import '../models/message.dart';
 import '../viewmodels/jarvis_viewmodel.dart';
 
 class CommunicationScreen extends StatefulWidget {
@@ -12,18 +14,53 @@ class CommunicationScreen extends StatefulWidget {
 }
 
 class _CommunicationScreenState extends State<CommunicationScreen> {
-  final TextEditingController _msgController = TextEditingController();
-  String _selectedTab = 'mesajlar';
+  List<Contact> _contacts = [];
+  bool _loading = false;
+  String? _error;
+  String _query = '';
 
   @override
-  void dispose() {
-    _msgController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _loadContacts();
+  }
+
+  Future<void> _loadContacts() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final hasPermission = await FlutterContacts.requestPermission(readonly: true);
+      if (!hasPermission) {
+        setState(() {
+          _error = 'Rehber izni verilmedi. Ayarlar > Gizlilik > Kişilerden izin verin.';
+          _loading = false;
+        });
+        return;
+      }
+      final contacts = await FlutterContacts.getContacts(withProperties: true);
+      setState(() {
+        _contacts = contacts;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Rehber okunamadı: $e';
+        _loading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<JARVISViewModel>();
+
+    final filtered = _query.isEmpty
+        ? _contacts
+        : _contacts
+            .where((c) => c.displayName.toLowerCase().contains(_query.toLowerCase()))
+            .toList();
 
     return Container(
       decoration: BoxDecoration(
@@ -36,228 +73,103 @@ class _CommunicationScreenState extends State<CommunicationScreen> {
       child: SafeArea(
         child: Column(
           children: [
-            _buildHeader(),
-            _buildTabBar(),
-            Expanded(
-              child: _selectedTab == 'mesajlar'
-                  ? _buildMessages(vm)
-                  : _buildQuickActions(vm),
+            _buildHeader(vm),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: TextField(
+                onChanged: (v) => setState(() => _query = v),
+                style: const TextStyle(color: JARVISTheme.textPrimary, fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: 'Kişi ara...',
+                  hintStyle: const TextStyle(color: JARVISTheme.textSecondary, fontSize: 13),
+                  prefixIcon: const Icon(Icons.search, color: JARVISTheme.textSecondary, size: 18),
+                  filled: true,
+                  fillColor: JARVISTheme.surface,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: JARVISTheme.surfaceLight),
+                  ),
+                ),
+              ),
             ),
+            Expanded(child: _buildBody(filtered)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      child: const Row(
-        children: [
-          Icon(Icons.chat_outlined, color: JARVISTheme.primary, size: 28),
-          SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('İLETİŞİM', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 3, color: JARVISTheme.textPrimary)),
-              Text('Bilgi Asistanı • Mesaj Yönetimi', style: TextStyle(fontSize: 11, color: JARVISTheme.textSecondary, letterSpacing: 1)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabBar() {
+  Widget _buildHeader(JARVISViewModel vm) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
         children: [
-          _TabButton(label: 'MESAJLAR', isActive: _selectedTab == 'mesajlar', onTap: () => setState(() => _selectedTab = 'mesajlar')),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: JARVISTheme.primary.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.chat, color: JARVISTheme.primary, size: 24),
+          ),
           const SizedBox(width: 12),
-          _TabButton(label: 'HIZLI İŞLEMLER', isActive: _selectedTab == 'hizli', onTap: () => setState(() => _selectedTab = 'hizli')),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMessages(JARVISViewModel vm) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          Row(
+          const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: TextField(
-                  controller: _msgController,
-                  style: const TextStyle(color: JARVISTheme.textPrimary),
-                  decoration: InputDecoration(
-                    hintText: 'Mesajınızı yazın...',
-                    hintStyle: const TextStyle(color: JARVISTheme.textSecondary),
-                    filled: true,
-                    fillColor: JARVISTheme.surface,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: JARVISTheme.primary.withOpacity(0.2)),
-                    ),
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.send, color: JARVISTheme.primary),
-                      onPressed: () {
-                        if (_msgController.text.isNotEmpty) {
-                          vm.communicationService.addMessage('Ben', _msgController.text, MessageType.sms);
-                          vm.aiEngine.processInput(_msgController.text);
-                          _msgController.clear();
-                          setState(() {});
-                        }
-                      },
-                    ),
-                  ),
-                ),
-              ),
+              Text('İLETİŞİM',
+                  style: TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 3, color: JARVISTheme.textPrimary)),
+              Text('Rehber • Arama • Mesaj',
+                  style: TextStyle(fontSize: 11, color: JARVISTheme.textSecondary, letterSpacing: 1)),
             ],
           ),
-          const SizedBox(height: 16),
-          ...vm.communicationService.messages.take(20).map((msg) => Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: JARVISTheme.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: msg.isUrgent ? JARVISTheme.danger.withOpacity(0.3) : JARVISTheme.surfaceLight,
-              ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: msg.sender == 'J.A.R.V.I.S.'
-                        ? JARVISTheme.primary.withOpacity(0.15)
-                        : JARVISTheme.secondary.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    msg.type == MessageType.email ? Icons.email : Icons.chat_bubble_outline,
-                    color: msg.sender == 'J.A.R.V.I.S.' ? JARVISTheme.primary : JARVISTheme.secondary,
-                    size: 14,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(msg.sender, style: const TextStyle(color: JARVISTheme.textPrimary, fontWeight: FontWeight.w600, fontSize: 12)),
-                          if (msg.isUrgent) ...[
-                            const SizedBox(width: 6),
-                            const Icon(Icons.warning, color: JARVISTheme.danger, size: 12),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(msg.content, style: const TextStyle(color: JARVISTheme.textSecondary, fontSize: 12)),
-                      Text(
-                        '${msg.timestamp.hour.toString().padLeft(2, "0")}:${msg.timestamp.minute.toString().padLeft(2, "0")}',
-                        style: const TextStyle(color: JARVISTheme.textSecondary, fontSize: 9),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          )),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickActions(JARVISViewModel vm) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _QuickActionTile(
-            icon: Icons.email,
-            label: 'E-posta Gönder',
-            subtitle: 'Stark Industries',
-            onTap: () => vm.communicationService.sendEmail('ekip@stark.com', 'Toplantı', 'Yarın saat 10:00'),
-          ),
-          const SizedBox(height: 8),
-          _QuickActionTile(
-            icon: Icons.sms,
-            label: 'Mesaj Gönder',
-            subtitle: 'Pepper Potts',
-            onTap: () => vm.communicationService.sendSms('Pepper', 'Akşam yemeği için yer ayırttım.'),
-          ),
-          const SizedBox(height: 8),
-          _QuickActionTile(
-            icon: Icons.notifications_active,
-            label: 'Hatırlatıcı Kur',
-            subtitle: 'Proje teslim tarihi',
-            onTap: () => vm.communicationService.scheduleReminder('Proje Teslimi', DateTime.now().add(const Duration(hours: 24))),
+          const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: JARVISTheme.primary, size: 20),
+            onPressed: _loadContacts,
           ),
         ],
       ),
     );
   }
-}
 
-class _TabButton extends StatelessWidget {
-  final String label;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _TabButton({required this.label, required this.isActive, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: isActive ? JARVISTheme.primary.withOpacity(0.15) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: isActive ? Border.all(color: JARVISTheme.primary.withOpacity(0.3)) : null,
+  Widget _buildBody(List<Contact> contacts) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator(color: JARVISTheme.primary));
+    }
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.lock_outline, color: JARVISTheme.warning, size: 40),
+              const SizedBox(height: 12),
+              Text(_error!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: JARVISTheme.textSecondary, fontSize: 12)),
+            ],
+          ),
         ),
-        child: Text(label, style: TextStyle(
-          color: isActive ? JARVISTheme.primary : JARVISTheme.textSecondary,
-          fontSize: 11,
-          letterSpacing: 1.5,
-          fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-        )),
-      ),
-    );
-  }
-}
-
-class _QuickActionTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  const _QuickActionTile({
-    required this.icon,
-    required this.label,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(16),
+      );
+    }
+    if (contacts.isEmpty) {
+      return const Center(
+        child: Text('Rehberde kişi yok.',
+            style: TextStyle(color: JARVISTheme.textSecondary)),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      itemCount: contacts.length,
+      itemBuilder: (context, index) {
+        final contact = contacts[index];
+        final phone = contact.phones.isNotEmpty ? contact.phones.first.number : null;
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: JARVISTheme.surface,
             borderRadius: BorderRadius.circular(12),
@@ -265,20 +177,93 @@ class _QuickActionTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(icon, color: JARVISTheme.primary, size: 24),
-              const SizedBox(width: 14),
+              CircleAvatar(
+                backgroundColor: JARVISTheme.secondary.withOpacity(0.2),
+                child: Text(
+                  contact.displayName.isNotEmpty ? contact.displayName[0].toUpperCase() : '?',
+                  style: const TextStyle(color: JARVISTheme.secondary),
+                ),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(label, style: const TextStyle(color: JARVISTheme.textPrimary, fontWeight: FontWeight.w600)),
-                    Text(subtitle, style: const TextStyle(color: JARVISTheme.textSecondary, fontSize: 12)),
+                    Text(contact.displayName,
+                        style: const TextStyle(color: JARVISTheme.textPrimary, fontSize: 13)),
+                    Text(phone ?? 'Telefon yok',
+                        style: const TextStyle(color: JARVISTheme.textSecondary, fontSize: 11)),
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios, color: JARVISTheme.textSecondary, size: 14),
+              if (phone != null) ...[
+                IconButton(
+                  icon: const Icon(Icons.phone, color: JARVISTheme.success, size: 18),
+                  onPressed: () => launchUrl(Uri.parse('tel:$phone'),
+                      mode: LaunchMode.externalApplication),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.sms, color: JARVISTheme.primary, size: 18),
+                  onPressed: () => _showSmsSheet(contact, phone),
+                ),
+              ],
             ],
           ),
+        );
+      },
+    );
+  }
+
+  void _showSmsSheet(Contact contact, String phone) {
+    final controller = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: JARVISTheme.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Mesaj: ${contact.displayName}',
+                style: const TextStyle(
+                    color: JARVISTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              style: const TextStyle(color: JARVISTheme.textPrimary),
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Mesajınız',
+                labelStyle: TextStyle(color: JARVISTheme.textSecondary),
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: JARVISTheme.primary,
+                foregroundColor: Colors.black,
+                minimumSize: const Size(double.infinity, 44),
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+                launchUrl(
+                  Uri.parse('sms:$phone?body=${Uri.encodeComponent(controller.text)}'),
+                  mode: LaunchMode.externalApplication,
+                );
+              },
+              child: const Text('MESAJLARDA AÇ'),
+            ),
+          ],
         ),
       ),
     );

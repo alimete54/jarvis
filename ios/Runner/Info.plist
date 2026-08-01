@@ -7,7 +7,25 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>jarvis</string>
+	<string>JARVIS</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>JARVIS sesli komutlarınızı duyabilmek için mikrofona erişim ister.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>JARVIS konuşmanızı yazıya çevirmek için konuşma tanımayı kullanır.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>JARVIS fotoğraf çekip analiz edebilmek için kameraya erişim ister.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>JARVIS fotoğraf yüklemenize izin vermek için fotoğraf kütüphanesine erişim ister.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>JARVIS konumunuzu kullanarak hava durumu ve konum bilgisi verir.</string>
+	<key>NSLocationUsageDescription</key>
+	<string>JARVIS konumunuzu kullanarak hava durumu ve konum bilgisi verir.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>JARVIS takviminize etkinlik ekleyebilmek için takvim erişimi ister.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>JARVIS rehberinizdeki kişileri arayabilmeniz için kişilere erişim ister.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>JARVIS hatırlatıcı oluşturabilmek için hatırlatıcılara erişim ister.</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

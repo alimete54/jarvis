@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+
 import 'config/theme.dart';
 import 'viewmodels/jarvis_viewmodel.dart';
 import 'views/home_screen.dart';
+import 'views/chat_screen.dart';
 import 'views/agent_screen.dart';
-import 'views/security_screen.dart';
 import 'views/communication_screen.dart';
+import 'views/settings_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,13 +23,32 @@ void main() {
   runApp(const JARVISApp());
 }
 
-class JARVISApp extends StatelessWidget {
+class JARVISApp extends StatefulWidget {
   const JARVISApp({super.key});
 
   @override
+  State<JARVISApp> createState() => _JARVISAppState();
+}
+
+class _JARVISAppState extends State<JARVISApp> {
+  final JARVISViewModel _viewModel = JARVISViewModel();
+
+  @override
+  void initState() {
+    super.initState();
+    _viewModel.init();
+  }
+
+  @override
+  void dispose() {
+    _viewModel.disposeAll();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => JARVISViewModel(),
+    return ChangeNotifierProvider.value(
+      value: _viewModel,
       child: MaterialApp(
         title: 'J.A.R.V.I.S.',
         debugShowCheckedModeBanner: false,
@@ -50,9 +71,10 @@ class _MainNavigatorState extends State<MainNavigator> {
 
   final List<Widget> _screens = const [
     HomeScreen(),
+    ChatScreen(),
     AgentScreen(),
-    SecurityScreen(),
     CommunicationScreen(),
+    SettingsScreen(),
   ];
 
   @override
@@ -89,19 +111,24 @@ class _MainNavigatorState extends State<MainNavigator> {
             label: 'MERKEZ',
           ),
           NavigationDestination(
+            icon: Icon(Icons.smart_toy_outlined, color: JARVISTheme.textSecondary),
+            selectedIcon: Icon(Icons.smart_toy, color: JARVISTheme.primary),
+            label: 'JARVIS',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.smartphone_outlined, color: JARVISTheme.textSecondary),
             selectedIcon: Icon(Icons.smartphone, color: JARVISTheme.secondary),
             label: 'AJAN',
           ),
           NavigationDestination(
-            icon: Icon(Icons.security_outlined, color: JARVISTheme.textSecondary),
-            selectedIcon: Icon(Icons.security, color: JARVISTheme.primary),
-            label: 'GÜVENLİK',
-          ),
-          NavigationDestination(
             icon: Icon(Icons.chat_outlined, color: JARVISTheme.textSecondary),
             selectedIcon: Icon(Icons.chat, color: JARVISTheme.primary),
             label: 'İLETİŞİM',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined, color: JARVISTheme.textSecondary),
+            selectedIcon: Icon(Icons.settings, color: JARVISTheme.primary),
+            label: 'AYARLAR',
           ),
         ],
       ),

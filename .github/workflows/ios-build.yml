@@ -1,4 +1,11 @@
-name: iOS Unsigned IPA Build
+# JARVIS iOS build — GitHub Actions (Codemagic alternatifi)
+# İmzalı .ipa üretmek için repo secrets ekleyin (Settings > Secrets and variables > Actions):
+#   IOS_CERTIFICATE          — .p12 sertifikanız (base64)   (Apple Developer'dan)
+#   IOS_CERTIFICATE_PASSWORD — sertifika şifresi
+#   IOS_PROVISIONING_PROFILE — .mobileprovision (base64)    (cihazlarınızı içeren development profili)
+# Not: Free Apple ID ile CI imzalama çalışmaz; Apple Developer Program ($99/yıl) gerekir.
+
+name: iOS Signed IPA
 
 on:
   workflow_dispatch:
@@ -7,7 +14,7 @@ on:
 
 jobs:
   build:
-    name: Build iOS IPA (Unsigned)
+    name: Build iOS IPA (Signed)
     runs-on: macos-latest
 
     steps:
@@ -17,19 +24,29 @@ jobs:
         with:
           flutter-version: stable
 
+      - name: Install the Apple certificate and provisioning profile
+        env:
+          IOS_CERTIFICATE: ${{ secrets.IOS_CERTIFICATE }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+          KEYCHAIN_PASSWORD: jarvis-build
+        run: |
+          echo "$IOS_CERTIFICATE" | base64 --decode > certificate.p12
+          echo "$IOS_PROVISIONING_PROFILE" | base64 --decode > profile.mobileprovision
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$IOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+
       - run: flutter pub get
 
-      - run: flutter build ios --release --no-codesign
-
-      - name: Create unsigned IPA
-        run: |
-          mkdir -p build/ios/ipa/Payload
-          cp -r build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
-          cd build/ios/ipa
-          zip -r jarvis.ipa Payload/
-          mv jarvis.ipa ../jarvis.ipa
+      - name: Build signed IPA
+        run: flutter build ipa --release --export-options-plist=export_options.plist
 
       - uses: actions/upload-artifact@v4
         with:
-          name: jarvis-unsigned-ipa
-          path: build/ios/jarvis.ipa
+          name: jarvis-signed-ipa
+          path: build/ios/ipa/*.ipa

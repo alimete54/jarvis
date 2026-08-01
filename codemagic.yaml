@@ -1,17 +1,59 @@
+# JARVIS iOS build — Codemagic (bulut Mac, Windows'tan kullanılır)
+# Kurulum: https://docs.codemagic.io/faq/getting-started/
+# 1) Codemagic'te projeyi ekleyin (GitHub'dan).
+# 2) App Store Connect API anahtarı oluşturun ve Codemagic'e bağlayın:
+#    https://appstoreconnect.apple.com/access/api  (App Manager izni yeterli)
+# 3) environment.groups altındaki CERTIFICATE_PRIVATE_KEY'i girin (App Store Connect > Keys > "Download API Key"
+#    ile indirilen .p8 dosyasının içeriği). Bu, imzalama sertifikasını otomatik oluşturur.
+# 4) Build'i çalıştırın. İmzalı .ipa dosyasını indirip iPhone'a kurun.
+
 workflows:
   ios-build:
-    name: JARVIS IPA Build
+    name: JARVIS IPA (imzali)
     instance_type: mac_mini_m2
+    max_build_duration: 60
     environment:
       flutter: stable
       xcode: latest
       cocoapods: default
+      groups:
+        - app_store_credentials
+        # - certificate_credentials   # CERTIFICATE_PRIVATE_KEY buraya (App Store Connect API key .p8 içeriği)
+      vars:
+        BUNDLE_ID: com.jarvis.jarvis
+        APP_STORE_APPLE_ID: "" # App Store Connect > Uygulama > Genel Bilgi'deki Apple ID
+    integrations:
+      app_store_connect: codemagic
     scripts:
-      - flutter pub get
-      - flutter build ios --release
+      - name: Set up keychain to be used for code signing
+        script: |
+          keychain initialize
+      - name: Fetch signing files
+        script: |
+          app-store-connect fetch-signing-files $BUNDLE_ID \
+            --type IOS_APP_DEVELOPMENT \
+            --create
+      - name: Use system default keychain
+        script: |
+          keychain add-certificates
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcode-project use-profiles
+      - name: Get Flutter packages
+        script: |
+          flutter pub get
+      - name: Build IPA
+        script: |
+          flutter build ipa --release \
+            --build-name=1.0.0 \
+            --export-options-plist=export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
     publishing:
       email:
         recipients:
           - alimeteozyazici@gmail.com
+        notify:
+          success: true
+          failure: true
