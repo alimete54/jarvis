@@ -33,10 +33,20 @@ class JARVISApp extends StatefulWidget {
 class _JARVISAppState extends State<JARVISApp> {
   final JARVISViewModel _viewModel = JARVISViewModel();
 
+  String? _initError;
+
   @override
   void initState() {
     super.initState();
-    _viewModel.init();
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    try {
+      await _viewModel.init();
+    } catch (e, st) {
+      setState(() => _initError = '$e\n\n$st');
+    }
   }
 
   @override
@@ -47,6 +57,52 @@ class _JARVISAppState extends State<JARVISApp> {
 
   @override
   Widget build(BuildContext context) {
+    if (_initError != null) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: JARVISTheme.darkTheme,
+        home: Scaffold(
+          backgroundColor: JARVISTheme.background,
+          body: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('BAŞLANGIÇ HATASI',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: JARVISTheme.danger,
+                          letterSpacing: 2,
+                          fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: SelectableText(
+                        _initError!,
+                        style: const TextStyle(
+                            color: JARVISTheme.textSecondary, fontSize: 13),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: _initError!));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Hata kopyalandı')),
+                      );
+                    },
+                    icon: const Icon(Icons.copy),
+                    label: const Text('HATAYI KOPYALA'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return ChangeNotifierProvider.value(
       value: _viewModel,
       child: MaterialApp(

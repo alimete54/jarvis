@@ -39,13 +39,17 @@ class ToolExecutor {
   }
 
   Future<void> _initNotifications() async {
-    tzdata.initializeTimeZones();
-    await _notifications.initialize(
-      const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-        iOS: DarwinInitializationSettings(),
-      ),
-    );
+    try {
+      tzdata.initializeTimeZones();
+      await _notifications.initialize(
+        const InitializationSettings(
+          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+          iOS: DarwinInitializationSettings(),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Bildirim başlatılamadı: $e');
+    }
   }
 
   Future<ToolResult> execute(String name, Map<String, dynamic> args) async {
