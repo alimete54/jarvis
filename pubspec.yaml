@@ -35,6 +35,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  # SPM yerine CocoaPods: Sideloadly ile yeniden imzalanabilir framework'ler
-  # (SPM binary framework'leri --no-codesign + sideload'da açılışta çöküyor)
-  enable-swift-package-manager: false
