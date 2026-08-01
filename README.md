@@ -33,11 +33,22 @@ flutter test
 
 > El feneri, parlaklık, takvim gibi native özellikler tarayıcıda çalışmaz; Android/iOS'ta çalışır.
 
-## iPhone'a Kurulum (Windows'tan, 3 yol)
+## iPhone'a Kurulum (Windows'tan, ücretsiz)
 
-> **Önemli:** iPhone'a uygulama kurmak için **Apple Developer Program** üyeliği gerekir ($99/yıl, https://developer.apple.com/programs/). Ücretsiz Apple ID yalnızca Mac'te Xcode ile 7 gün geçerli test kurulumu yapabilir.
+> **İyi haber:** Apple Developer Program üyeliği ($99/yıl) GEREKMEZ. Ücretsiz Apple ID ile sideload yapılabilir. Tek sınır: uygulama her **7 günde bir yeniden imzalanmalı** (Sideloadly'de 1 tıklık iş) ve aynı anda en fazla 3 uygulama kurulabilir. Tüm özellikler (mikrofon, kamera, rehber, konum, takvim, bildirimler) ücretsiz profilde de çalışır.
 
-### Yol 1 — Codemagic (önerilen, tamamen bulut)
+### Yol 1 — GitHub Actions + Sideloadly (önerilen, tamamen ücretsiz)
+
+1. Repo'yu GitHub'a push edin → **Actions** sekmesi → "iOS Unsigned IPA Build" → "Run workflow".
+2. Build bitince **jarvis-unsigned-ipa** artefaktını indirin (sağ altta "Artifacts").
+3. Windows'a **Sideloadly** kurun: https://sideloadly.io
+4. iPhone'u USB ile bağlayın, iTunes/Apple Devices yüklü olsun (https://support.apple.com/downloads/apple-devices).
+5. Sideloadly'de `.ipa`yı seçin, **Apple ID + şifreni** girin (2FA açıksa app-specific password üretin: https://appleid.apple.com → "Sign-In and Security" → "App-Specific Passwords").
+6. "Start" → ilk seferde Apple ID'nize yönetici şifresiniz istenir (sadece izin için). iPhone'a otomatik kurulur.
+7. Telefonda: **Ayarlar > Genel > VPN ve Cihaz Yönetimi** → geliştirici profiline dokun → **Güven**.
+8. 7 gün dolunca: telefonu tekrar bağlayıp Sideloadly'de aynı `.ipa`yı tekrar kurun (ayarların kaybolmaması için "Try anyway" seçmeyin; önceki kurulumun üzerine kurar).
+
+### Yol 2 — Codemagic (Apple Developer Program'lılar için)
 
 1. GitHub'a repo'yu push edin.
 2. https://codemagic.io → "Add application" → bu repo'yu seçin.
@@ -48,10 +59,6 @@ flutter test
    - **Macintosh**: Apple Configurator 2 (App Store'dan) ile kurun, veya
    - **Windows**: [iMazing](https://imazing.com) ile kurun, veya
    - Cihazınızı bir Mac'e bağlayıp Finder > Cihazlar > Uygulamalar'a `.ipa` sürükleyin.
-
-### Yol 2 — GitHub Actions (ücretsiz macOS runner)
-
-`.github/workflows/ios-build.yml` hazır. Repo **Secrets**'larına şunları ekleyin: `IOS_CERTIFICATE` (.p12 base64), `IOS_CERTIFICATE_PASSWORD`, `IOS_PROVISIONING_PROFILE` (.mobileprovision base64). Sonra Actions sayfasından "iOS Signed IPA" işini çalıştırın.
 
 ### Yol 3 — Gerçek Mac
 
