@@ -105,6 +105,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
               onChanged: (v) => s.setTTSMode(TTSMode.values.byName(v!)),
             ),
+            const SizedBox(height: 8),
+            _wakeWordToggle(s),
             const SizedBox(height: 24),
             _sectionTitle('KİŞİSELLEŞTİRME'),
             const SizedBox(height: 8),
@@ -128,6 +130,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 24),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _wakeWordToggle(SettingsService s) {
+    final supported = s.sttMode == STTMode.onDevice;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: JARVISTheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: JARVISTheme.surfaceLight),
+      ),
+      child: SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        value: s.wakeWordEnabled,
+        onChanged: supported ? s.setWakeWordEnabled : null,
+        activeTrackColor: JARVISTheme.success,
+        title: const Text('Uyandırma kelimesi',
+            style: TextStyle(color: JARVISTheme.textPrimary, fontSize: 13)),
+        subtitle: Text(
+          supported
+              ? '"Jarvis" deyince uygulamada otomatik dinlemeye geçer (cihaz üzeri STT)'
+              : 'Cihaz üzeri STT gerektirir (yukarıdan seçin)',
+          style: const TextStyle(color: JARVISTheme.textSecondary, fontSize: 10),
         ),
       ),
     );

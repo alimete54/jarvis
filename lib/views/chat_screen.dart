@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../config/theme.dart';
 import '../services/ai/llm_client.dart';
+import '../services/ai/speech_service.dart';
 import '../viewmodels/chat_viewmodel.dart';
 import '../viewmodels/jarvis_viewmodel.dart';
 
@@ -95,6 +96,36 @@ class _ChatScreenState extends State<ChatScreen> {
             ],
           ),
           const Spacer(),
+          ValueListenableBuilder<SpeakingState>(
+            valueListenable: chat.speech.state,
+            builder: (context, state, _) {
+              if (state != SpeakingState.speaking) return const SizedBox.shrink();
+              return IconButton(
+                icon: const Icon(Icons.stop_circle,
+                    color: JARVISTheme.danger, size: 22),
+                onPressed: chat.stopSpeaking,
+                tooltip: 'Konuşmayı durdur',
+              );
+            },
+          ),
+          if (chat.wakeWordSupported) ...[
+            ValueListenableBuilder<SpeakingState>(
+              valueListenable: chat.speech.state,
+              builder: (context, state, _) {
+                final wakeActive = chat.wakeRunning;
+                return IconButton(
+                  icon: Icon(
+                    wakeActive ? Icons.wifi_tethering : Icons.wifi_tethering_off,
+                    color:
+                        wakeActive ? JARVISTheme.success : JARVISTheme.textSecondary,
+                    size: 20,
+                  ),
+                  onPressed: wakeActive ? chat.stopWakeWord : chat.startWakeWord,
+                  tooltip: 'Uyandırma: "Jarvis" deyin',
+                );
+              },
+            ),
+          ],
           IconButton(
             icon: Icon(
               chat.speakAfterReply ? Icons.volume_up : Icons.volume_off,
@@ -205,6 +236,11 @@ class _ChatScreenState extends State<ChatScreen> {
       'get_weather' => '🌤 Hava durumu',
       'copy_to_clipboard' => '📋 Pano',
       'open_url' => '🔗 Bağlantı',
+      'get_time' => '🕐 Saat',
+      'read_clipboard' => '📋 Pano oku',
+      'send_whatsapp' => '💬 WhatsApp',
+      'haptic_feedback' => '📳 Titreşim',
+      'open_settings' => '⚙️ Ayarlar',
       _ => '🛠 ${tool.name}',
     };
     return Container(
@@ -238,7 +274,8 @@ class _ChatScreenState extends State<ChatScreen> {
           Text('Sizi dinliyorum ${chat.settings.userName}...',
               style: const TextStyle(color: JARVISTheme.textPrimary, fontSize: 16, letterSpacing: 1)),
           const SizedBox(height: 8),
-          const Text('Mikrofona basın ya da yazın. "Pepper\'ı ara" gibi komutları yerine getiririm.',
+          const Text('Mikrofona basın ya da yazın. "Pepper\'ı ara", "hava nasıl" gibi komutları yerine getiririm. '
+              'Ayarlarda uyandırma kelimesini açarsanız "Jarvis..." deyip komut verebilirsiniz.',
               textAlign: TextAlign.center,
               style: TextStyle(color: JARVISTheme.textSecondary, fontSize: 12)),
         ],
@@ -351,10 +388,6 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildMicButton(ChatViewModel chat) {
     final active = chat.listening;
     return GestureDetector(
-      onLongPressStart: (_) => chat.toggleListening(),
-      onLongPressEnd: (_) {
-        if (chat.listening) chat.toggleListening();
-      },
       onTap: () => chat.toggleListening(),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),

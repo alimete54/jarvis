@@ -121,4 +121,39 @@ const List<Map<String, dynamic>> toolDefinitions = [
     'description': 'Bir web sayfasını veya uygulama linkini açar.',
     'parameters': {'type': 'object', 'properties': {'url': {'type': 'string'}}, 'required': ['url']},
   },
+  {
+    'name': 'get_time',
+    'description': 'Güncel tarih, saat ve haftanın gününü döndürür.',
+    'parameters': {'type': 'object', 'properties': {}},
+  },
+  {
+    'name': 'read_clipboard',
+    'description': 'Panoda kopyalı metni okur.',
+    'parameters': {'type': 'object', 'properties': {}},
+  },
+  {
+    'name': 'send_whatsapp',
+    'description': 'Bir numaraya WhatsApp üzerinden mesaj yazar ve WhatsApp uygulamasını açar (kullanıcı gönderir).',
+    'parameters': {
+      'type': 'object',
+      'properties': {
+        'number': {'type': 'string', 'description': 'Tel no, + ile uluslararası format'},
+        'message': {'type': 'string'},
+      },
+      'required': ['message'],
+    },
+  },
+  {
+    'name': 'haptic_feedback',
+    'description': 'Titreşim/dokunsal geri bildirim verir. Tür: light, medium, heavy, success, warning veya error.',
+    'parameters': {
+      'type': 'object',
+      'properties': {'type': {'type': 'string'}},
+    },
+  },
+  {
+    'name': 'open_settings',
+    'description': 'Telefonun Ayarlar uygulamasını açar.',
+    'parameters': {'type': 'object', 'properties': {}},
+  },
 ];

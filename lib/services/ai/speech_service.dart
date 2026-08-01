@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -26,15 +27,31 @@ class SpeechService {
 
   bool _sttReady = false;
   bool _recording = false;
+  bool _wakeActive = false;
+  bool _capturingCommand = false;
   String _partial = '';
+  void Function(String command)? _onWake;
   final ValueNotifier<SpeakingState> state = ValueNotifier(SpeakingState.idle);
 
   bool get isOnDeviceSTT => settings.sttMode == STTMode.onDevice;
 
+  /// Cihazda Türkçe varsa tr_TR, yoksa sistem varsayılanını kullanır.
+  Future<String?> _sttLocale() async {
+    try {
+      final list = await _stt.locales();
+      for (final l in list) {
+        if (l.localeId == 'tr_TR') return 'tr_TR';
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  void Function(String status)? _statusHandler;
+
   Future<bool> _ensureSTT() async {
     if (!_sttReady) {
       _sttReady = await _stt.initialize(
-        onStatus: (_) {},
+        onStatus: (s) => _statusHandler?.call(s),
         onError: (e) => debugPrint('STT hatası: $e'),
       );
     }
@@ -56,8 +73,9 @@ class SpeechService {
         if (!await _ensureSTT()) {
           throw Exception('Mikrofon/speech izni verilmedi. Ayarlardan STT modunu değiştirin.');
         }
+        _statusHandler = null;
         await _stt.listen(
-          localeId: 'tr_TR',
+          localeId: await _sttLocale(),
           listenMode: ListenMode.dictation,
           onResult: (SpeechRecognitionResult result) {
             _partial = result.recognizedWords;
@@ -105,12 +123,111 @@ class SpeechService {
   }
 
   Future<void> cancelListening() async {
+    _statusHandler = null;
     if (isOnDeviceSTT) {
       await _stt.cancel();
     } else if (_recording) {
       await _recorder.stop();
       _recording = false;
     }
+    _setState(SpeakingState.idle);
+  }
+
+  // ─────────── Uyandırma kelimesi ("Jarvis") ───────────
+
+  /// Sürekli dinler; "jarvis" duyunca [onWake]'i komutla çağırır.
+  Future<void> startWakeWord({required void Function(String command) onWake}) async {
+    _onWake = onWake;
+    _wakeActive = true;
+    _capturingCommand = false;
+    await _wakeListen();
+  }
+
+  Future<void> _wakeListen() async {
+    if (!_wakeActive || _capturingCommand) return;
+    try {
+      if (!await _ensureSTT()) return;
+      _statusHandler = (status) {
+        if (_wakeActive &&
+            !_capturingCommand &&
+            (status == 'done' || status == 'notListening')) {
+          Future.delayed(const Duration(milliseconds: 400), _wakeListen);
+        }
+      };
+      await _stt.listen(
+        localeId: await _sttLocale(),
+        listenMode: ListenMode.confirmation,
+        onResult: (SpeechRecognitionResult r) {
+          if (!_wakeActive || _capturingCommand) return;
+          final words = r.recognizedWords.toLowerCase();
+          if (words.contains('jarvis')) {
+            unawaited(_wakeDetected(words));
+          }
+        },
+      );
+    } catch (e) {
+      debugPrint('Uyandırma dinleme hatası: $e');
+      Future.delayed(const Duration(milliseconds: 800), _wakeListen);
+    }
+  }
+
+  Future<void> _wakeDetected(String utterance) async {
+    _wakeActive = false;
+    _statusHandler = null;
+    try {
+      await _stt.stop();
+    } catch (_) {}
+    final command = utterance
+        .replaceAll(RegExp(r'^(hey|tamam|peki|evet|bey)\s*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'jarvis\s*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'[^a-zçğıöşü0-9 ]+', caseSensitive: false), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (command.isEmpty) {
+      _capturingCommand = true;
+      _partial = '';
+      _statusHandler = (status) {
+        if (_capturingCommand &&
+            (status == 'done' || status == 'notListening')) {
+          _capturingCommand = false;
+          _statusHandler = null;
+          unawaited(_deliverCommand(_partial));
+        }
+      };
+      try {
+        await _stt.listen(
+          localeId: await _sttLocale(),
+          listenMode: ListenMode.dictation,
+          pauseFor: const Duration(seconds: 2),
+          onResult: (SpeechRecognitionResult r) => _partial = r.recognizedWords,
+        );
+      } catch (e) {
+        _capturingCommand = false;
+        _statusHandler = null;
+        debugPrint('Komut dinleme hatası: $e');
+      }
+      return;
+    }
+    await _deliverCommand(command);
+  }
+
+  Future<void> _deliverCommand(String command) async {
+    final cb = _onWake;
+    _onWake = null;
+    if (cb != null && command.isNotEmpty) {
+      debugPrint('Uyandırma komutu: $command');
+      cb(command);
+    }
+  }
+
+  Future<void> stopWakeWord() async {
+    _wakeActive = false;
+    _capturingCommand = false;
+    _onWake = null;
+    _statusHandler = null;
+    try {
+      await _stt.cancel();
+    } catch (_) {}
     _setState(SpeakingState.idle);
   }
 
@@ -196,7 +313,16 @@ class SpeechService {
   }
 
   Future<void> _speakSystem(String text) async {
-    await _tts.setLanguage('tr-TR');
+    try {
+      final ok = await _tts.setLanguage('tr-TR');
+      if (ok != 1) {
+        await _tts.setLanguage('tr');
+      }
+    } catch (_) {
+      try {
+        await _tts.setLanguage('tr');
+      } catch (_) {}
+    }
     await _tts.setSpeechRate(0.45);
     await _tts.setVolume(1.0);
     await _tts.speak(text);
@@ -238,10 +364,20 @@ class SpeechService {
   }
 
   void dispose() {
-    _stt.cancel();
-    _tts.stop();
-    _recorder.dispose();
-    _player.dispose();
+    _wakeActive = false;
+    _capturingCommand = false;
+    try {
+      _stt.cancel();
+    } catch (_) {}
+    try {
+      _tts.stop();
+    } catch (_) {}
+    try {
+      _recorder.dispose();
+    } catch (_) {}
+    try {
+      _player.dispose();
+    } catch (_) {}
     state.dispose();
   }
 }

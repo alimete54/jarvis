@@ -25,7 +25,7 @@ class SettingsService extends ChangeNotifier {
   String _anthropicKey = '';
   String _geminiKey = '';
   String _openAIModel = 'gpt-4o-mini';
-  String _anthropicModel = 'claude-3-5-sonnet-20241022';
+  String _anthropicModel = 'claude-sonnet-4-20250514';
   String _geminiModel = 'gemini-2.0-flash';
   STTMode _sttMode = STTMode.onDevice;
   TTSMode _ttsMode = TTSMode.system;

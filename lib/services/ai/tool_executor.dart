@@ -44,9 +44,16 @@ class ToolExecutor {
       await _notifications.initialize(
         const InitializationSettings(
           android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-          iOS: DarwinInitializationSettings(),
+          iOS: DarwinInitializationSettings(
+            requestAlertPermission: true,
+            requestBadgePermission: false,
+            requestSoundPermission: true,
+          ),
         ),
       );
+      final iosImpl = _notifications
+          .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
+      await iosImpl?.requestPermissions(alert: true, badge: false, sound: true);
     } catch (e) {
       debugPrint('Bildirim başlatılamadı: $e');
     }
@@ -90,6 +97,19 @@ class ToolExecutor {
           return const ToolResult(true, 'Metin panoya kopyalandı.');
         case 'open_url':
           return _openUrl(args['url'] as String);
+        case 'get_time':
+          return _getTime();
+        case 'read_clipboard':
+          return _readClipboard();
+        case 'send_whatsapp':
+          return _sendWhatsApp(
+            args['number'] as String?,
+            args['message'] as String? ?? '',
+          );
+        case 'haptic_feedback':
+          return _haptic(args['type'] as String? ?? 'light');
+        case 'open_settings':
+          return _openSettings();
         default:
           return ToolResult(false, 'Bilinmeyen araç: $name');
       }
@@ -329,6 +349,66 @@ class ToolExecutor {
       return ToolResult(true, 'Açıldı: $url');
     }
     return const ToolResult(false, 'Bağlantı açılamadı.');
+  }
+
+  Future<ToolResult> _getTime() async {
+    final now = DateTime.now();
+    const days = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
+    final day = days[now.weekday - 1];
+    final hh = now.hour.toString().padLeft(2, '0');
+    final mm = now.minute.toString().padLeft(2, '0');
+    return ToolResult(
+      true,
+      'Saat $hh:$mm, ${now.day}.${now.month}.${now.year} $day.',
+    );
+  }
+
+  Future<ToolResult> _readClipboard() async {
+    try {
+      final data = await Clipboard.getData('text/plain');
+      final text = data?.text?.trim() ?? '';
+      if (text.isEmpty) return const ToolResult(false, 'Panoda metin yok.');
+      return ToolResult(true, 'Panodaki metin: "$text"');
+    } catch (e) {
+      return ToolResult(false, 'Pano okunamadı: $e');
+    }
+  }
+
+  Future<ToolResult> _sendWhatsApp(String? number, String message) async {
+    final encoded = Uri.encodeComponent(message);
+    final uri = number == null || number.isEmpty
+        ? Uri.parse('whatsapp://send?text=$encoded')
+        : Uri.parse('whatsapp://send?phone=${number.replaceAll(RegExp(r'[^0-9+]'), '')}&text=$encoded');
+    if (await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      return ToolResult(true, 'WhatsApp açıldı, mesaj hazır.');
+    }
+    return const ToolResult(false, 'WhatsApp kurulu değil veya açılamadı.');
+  }
+
+  Future<ToolResult> _haptic(String type) async {
+    switch (type) {
+      case 'light':
+        await HapticFeedback.lightImpact();
+      case 'medium':
+        await HapticFeedback.mediumImpact();
+      case 'heavy':
+        await HapticFeedback.heavyImpact();
+      case 'success':
+        await HapticFeedback.selectionClick();
+      case 'warning':
+      case 'error':
+        await HapticFeedback.vibrate();
+      default:
+        await HapticFeedback.lightImpact();
+    }
+    return ToolResult(true, 'Titreşim verildi ($type).');
+  }
+
+  Future<ToolResult> _openSettings() async {
+    if (await launchUrl(Uri.parse('app-settings:'), mode: LaunchMode.externalApplication)) {
+      return const ToolResult(true, 'Ayarlar uygulaması açıldı.');
+    }
+    return const ToolResult(false, 'Ayarlar açılamadı.');
   }
 
   void dispose() {

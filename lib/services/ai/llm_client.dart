@@ -16,6 +16,13 @@ class ChatMessage {
   final String? toolName;
   final Map<String, dynamic>? toolArgs;
 
+  const ChatMessage.system(String content)
+      : role = 'system',
+        content = content,
+        toolCallId = null,
+        toolName = null,
+        toolArgs = null;
+
   const ChatMessage.user(String content)
       : role = 'user',
         content = content,
@@ -83,17 +90,21 @@ gibi yardımsever ol. Tarih: ${now.day}.${now.month}.${now.year}, saat: ${now.ho
 
 Elinin altındaki araçlar: el feneri, ekran parlaklığı, pil bilgisi, kamera ile fotoğraf çekip analiz,
 zamanlayıcı, hatırlatıcı (tarih/saat ver), takvime etkinlik ekleme, rehberde kişi arama, telefon arama,
-SMS yazma, e-posta taslağı, konum, hava durumu, pano (kopyala), URL açma.
+SMS yazma, e-posta taslağı, konum, hava durumu, pano (kopyala/oku), URL açma, WhatsApp mesajı,
+titreşim, saat/tarih, telefon ayarlarını açma.
 
 Kurallar:
 - "X'i ara" → önce search_contacts ile kişiyi bul, numarasını call_phone ile çağır.
 - "X'e mesaj at" → search_contacts ile numara bul, send_sms ile mesajı yaz.
+- "WhatsApp'tan mesaj at" → send_whatsapp kullan.
+- "saat kaç" gibi sorularda get_time kullan.
 - Tarih içeren "hatırlat" → schedule_reminder (ISO 8601, yerel saat).
 - "dakika sonra" → set_timer.
 - "hava nasıl" → get_weather (önce get_location çağırabilirsin).
 - "ne görüyorsun" → take_photo.
 - Bir araç hata dönerse, kullanıcıya anlaşılır Türkçe anlat.
-- Arama ve mesaj işlemlerinde kullanıcı onayı telefonda gösterilir; bunu belirt.
+- Arama, SMS ve WhatsApp işlemlerinde kullanıcı onayı telefonda gösterilir; bunu belirt.
+- Uzun cevaplar yerine kısa ve net cevap ver.
 ''';
   }
 
@@ -108,7 +119,7 @@ Kurallar:
       );
     }
     final messages = <ChatMessage>[
-      ChatMessage.assistant(_systemPrompt),
+      ChatMessage.system(_systemPrompt),
       ...history,
     ];
 
@@ -289,6 +300,8 @@ Kurallar:
 
   Map<String, dynamic> _openAIMessage(ChatMessage m) {
     switch (m.role) {
+      case 'system':
+        return {'role': 'system', 'content': m.content};
       case 'tool':
         return {
           'role': 'tool',
