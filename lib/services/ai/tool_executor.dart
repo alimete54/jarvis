@@ -214,14 +214,18 @@ class ToolExecutor {
   }
 
   Future<ToolResult> _searchContacts(String query) async {
-    if (!await FlutterContacts.requestPermission(readonly: true)) {
+    final status =
+        await FlutterContacts.permissions.request(PermissionType.read);
+    if (status != PermissionStatus.granted && status != PermissionStatus.limited) {
       return const ToolResult(false, 'Rehber izni verilmedi.');
     }
-    final contacts = await FlutterContacts.getContacts(withProperties: true);
+    final contacts = await FlutterContacts.getAll(
+        properties: ContactProperties.allProperties);
     final matches = query.isEmpty
         ? contacts
         : contacts
-            .where((c) => c.displayName.toLowerCase().contains(query.toLowerCase()))
+            .where((c) =>
+                (c.displayName ?? '').toLowerCase().contains(query.toLowerCase()))
             .toList();
     if (matches.isEmpty) {
       return ToolResult(false, '"$query" rehberde bulunamadı.');

@@ -31,15 +31,18 @@ class _CommunicationScreenState extends State<CommunicationScreen> {
       _error = null;
     });
     try {
-      final hasPermission = await FlutterContacts.requestPermission(readonly: true);
-      if (!hasPermission) {
+      final status =
+          await FlutterContacts.permissions.request(PermissionType.read);
+      if (status != PermissionStatus.granted &&
+          status != PermissionStatus.limited) {
         setState(() {
           _error = 'Rehber izni verilmedi. Ayarlar > Gizlilik > Kişilerden izin verin.';
           _loading = false;
         });
         return;
       }
-      final contacts = await FlutterContacts.getContacts(withProperties: true);
+      final contacts = await FlutterContacts.getAll(
+          properties: ContactProperties.allProperties);
       setState(() {
         _contacts = contacts;
         _loading = false;
@@ -59,7 +62,9 @@ class _CommunicationScreenState extends State<CommunicationScreen> {
     final filtered = _query.isEmpty
         ? _contacts
         : _contacts
-            .where((c) => c.displayName.toLowerCase().contains(_query.toLowerCase()))
+            .where((c) => (c.displayName ?? '')
+                .toLowerCase()
+                .contains(_query.toLowerCase()))
             .toList();
 
     return Container(
@@ -180,7 +185,9 @@ class _CommunicationScreenState extends State<CommunicationScreen> {
               CircleAvatar(
                 backgroundColor: JARVISTheme.secondary.withOpacity(0.2),
                 child: Text(
-                  contact.displayName.isNotEmpty ? contact.displayName[0].toUpperCase() : '?',
+                  (contact.displayName?.isNotEmpty ?? false)
+                      ? contact.displayName![0].toUpperCase()
+                      : '?',
                   style: const TextStyle(color: JARVISTheme.secondary),
                 ),
               ),
@@ -189,7 +196,7 @@ class _CommunicationScreenState extends State<CommunicationScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(contact.displayName,
+                    Text(contact.displayName ?? '',
                         style: const TextStyle(color: JARVISTheme.textPrimary, fontSize: 13)),
                     Text(phone ?? 'Telefon yok',
                         style: const TextStyle(color: JARVISTheme.textSecondary, fontSize: 11)),
